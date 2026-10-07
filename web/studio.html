@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Clipper Studio</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui,sans-serif}
+body{max-width:760px;margin:0 auto;padding:16px;background:#111;color:#eee}
+h1{font-size:20px}
+input,select,button{padding:10px;border-radius:8px;border:1px solid #444;font-size:15px;background:#222;color:#eee}
+button{background:#7c3aed;border:0;cursor:pointer;font-weight:600;color:#fff}
+button:disabled{opacity:.5}
+.row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
+.card{background:#1c1c1c;border-radius:10px;padding:12px;margin:12px 0}
+.mut{color:#999;font-size:13px}
+a{color:#6ab0ff}
+.bar{height:8px;background:#333;border-radius:4px;overflow:hidden;margin:6px 0}
+.bar>i{display:block;height:100%;background:#7c3aed;width:0}
+label{font-size:13px;color:#bbb}
+</style>
+</head>
+<body>
+<h1>🎬 AI Clipper Studio</h1>
+<div class="card">
+<div class="row"><input id="url" style="flex:1;min-width:200px" placeholder="Paste link YouTube..."></div>
+<div class="row">
+<label>Jumlah klip <input id="clips" type="number" value="5" min="1" max="20" style="width:70px"></label>
+<label>Rasio <select id="ratio"><option>9:16</option><option>16:9</option><option>1:1</option></select></label>
+<label><input type="checkbox" id="subs" checked> Subtitle</label>
+<label><input type="checkbox" id="karaoke" checked> Karaoke</label>
+</div>
+<div class="row"><button id="bGo" onclick="start()">🚀 Mulai Auto-Clip</button><span id="st" class="mut"></span></div>
+</div>
+<div id="jobs"></div>
+<script>
+const $=id=>document.getElementById(id);
+async function api(m,p,b){const r=await fetch(p,{method:m,headers:{"Content-Type":"application/json"},body:b?JSON.stringify(b):undefined});return r.json();}
+async function start(){
+ const url=$("url").value.trim();if(!url)return;
+ $("bGo").disabled=true;$("st").textContent="buat job...";
+ try{const j=await api("POST","/api/jobs",{url,clips:+$("clips").value,ratio:$("ratio").value,no_subs:!$("subs").checked,use_karaoke_effect:$("karaoke").checked});
+  $("st").textContent="job jalan: "+j.id.slice(0,8);}catch(e){$("st").textContent="gagal: "+e;}
+ $("bGo").disabled=false;load();
+}
+async function load(){
+ const j=await api("GET","/api/jobs");
+ $("jobs").innerHTML=j.jobs.map(x=>`
+ <div class="card"><b class="mut">${x.id.slice(0,8)}</b> · ${x.status} · ${x.url||""}
+ <div class="bar"><i style="width:${prog(x)}%"></i></div>
+ <div class="mut">${x.progress?x.progress.message:""}</div>
+ <div>${(x.clips||[]).map(c=>`<div>🎞 <a href="/api/outputs/${x.id}/${c.filename}" download>${c.filename}</a></div>`).join("")}</div>
+ ${x.error?`<div style="color:#f66">${x.error}</div>`:""}
+ </div>`).join("")||"<span class=mut>belum ada job</span>";
+}
+function prog(x){const m=(x.progress&&x.progress.message||"").toLowerCase();if(x.status==="completed")return 100;if(m.includes("download"))return 15;if(m.includes("transcri"))return 35;if(m.includes("gemini")||m.includes("curat"))return 55;if(m.includes("render")||m.includes("clip"))return 80;return 5;}
+load();setInterval(load,8000);
+</script>
+</body>
+</html>
